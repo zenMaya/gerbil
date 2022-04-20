@@ -1,0 +1,54 @@
+#!/usr/bin/env -S guile --no-auto-compile
+!#
+(define-module (gerbil)
+  #:use-module (ice-9 match)
+  #:export (install reconfigure home-reconfigure))
+
+(set! %load-path (append
+		  '("./")
+		  %load-path))
+
+(define* (install #:key
+		  system-name
+		  (force-format-filesystem #f)
+		  (partition-drive #f)
+		  #:rest r)
+  (display (string-join (list "Installing" system-name)))
+  (newline)
+  (display force-format-filesystem)
+  (newline)
+  (display partition-drive)
+  (newline))
+
+(define (reconfigure system-name . other)
+  (display (string-join `("Reconfiguring" ,system-name)))
+  (newline))
+
+(define (home-reconfigure system-name . other)
+  (display (string-join (list "Reconfiguring home of" system-name)))
+  (newline))
+
+(define (install-cli args)
+  "Parse command-line arguments as keyword arguments and call (install)"
+  (apply install
+	 (let ()
+	   (define (install-cli-rec args)
+	     (match args
+       	       (() '())
+	       (((or "-f" "--force") . args) (append '(#:force-format-filesystem #t) (install-cli-rec args)))
+	       (((or "-p" "--partition") . args) (append '(#:partition-drive #t) (install-cli-rec args)))
+	       ((system-name . args) (append `(#:system-name ,system-name) (install-cli-rec args)))))
+	   (install-cli-rec args))))
+
+(define (gerbil-cli arg0 . args)
+  (let ((guix-main (module-ref (resolve-interface '(guix ui)) 'guix-main)))
+    (match args
+      (() (display "Missing command name") (newline))
+      (("home" . args) (home-reconfigure args))
+      (("install" . args) (install-cli args))
+      (("reconfigure" . args) (reconfigure args))
+      (_
+       (display (string-join `("Unrecognized command line option" ,(car args))))
+       (newline)))))
+
+(apply gerbil-cli (command-line))
